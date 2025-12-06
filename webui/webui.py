@@ -54,11 +54,12 @@ def main():
         config = read_config('config.ini')
         custom_server, ip_address, port = get_server_config(config)
         if custom_server:
-            demo.launch(inbrowser=True, server_name=ip_address, server_port=port)
+            demo.launch(inbrowser=True, server_name=ip_address, server_port=port, share=True)
         else:
-            demo.launch(inbrowser=True)
+            demo.launch(inbrowser=True, share=True)
 
 
 
 if __name__ == '__main__':
+
     main()
