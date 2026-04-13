@@ -1,12 +1,18 @@
 import os
+import tempfile
 from utils.path_utils import get_path
 import torchaudio
 def concatenate_audio(audio_files, output_path):
-    with open("filelist.txt", "w", encoding="utf-8") as f:
-        for audio_file in audio_files:
-            f.write(f"file '{audio_file}'\n")
-    os.system(f"ffmpeg -y -loglevel error -f concat -safe 0 -i filelist.txt -c copy {output_path}")
-    os.remove("filelist.txt")
+    # 使用临时文件避免并发冲突
+    fd, filelist_path = tempfile.mkstemp(suffix='.txt', prefix='filelist_')
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            for audio_file in audio_files:
+                f.write(f"file '{audio_file}'\n")
+        os.system(f"ffmpeg -y -loglevel error -f concat -safe 0 -i {filelist_path} -c copy {output_path}")
+    finally:
+        if os.path.exists(filelist_path):
+            os.remove(filelist_path)
 
 
 

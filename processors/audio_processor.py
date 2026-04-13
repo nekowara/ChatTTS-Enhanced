@@ -7,6 +7,7 @@ import torchaudio
 import numpy as np
 from utils.path_utils import get_path
 from utils.srt_utils import generate_srt_from_audio_segments
+from utils.text_utils import num2text
 #音频列表
 audio_files = []
 enhanced_audio_files = []
@@ -35,10 +36,10 @@ def audio_pre_processor(params: AudioPreProcessParams,enparams: EnhanceProcessPa
     denoise_audio=enparams.denoise_audio
 
     if emb_upload:
-        rand_spk = torch.load(emb_upload_path)
+        rand_spk = torch.load(emb_upload_path, weights_only=False)
     else:
         if isinstance(audio_profile_path, str) and audio_profile_path.endswith('.pt'):
-            spk = torch.load(os.path.join(get_path('CONFIG_DIR'), audio_profile_path))
+            spk = torch.load(os.path.join(get_path('CONFIG_DIR'), audio_profile_path), weights_only=False)
             rand_spk = spk.tensor
         else:
             torch.manual_seed(audio_profile_path)
@@ -79,7 +80,7 @@ def audio_pre_processor(params: AudioPreProcessParams,enparams: EnhanceProcessPa
                 enhanced_sample_rate, enhanced_audio_data = enhance_processor(enparams)
                 enhanced_audio_files.append(segment_audio_path)
 
-        if srt_flag and batch_processing:
+        if srt_flag:
             srt_path = os.path.join(get_path('OUTPUT_DIR'), file_name, f'{file_name}.srt')
             generate_srt_from_audio_segments(audio_files, content, srt_path)
 
@@ -112,6 +113,13 @@ def audio_pre_processor(params: AudioPreProcessParams,enparams: EnhanceProcessPa
     return original_audio_output,enhanced_audio_output, text
 
 def audio_processor(chat,file_name,segment,refine_text_flag,nums2text_switch,params_refine_text,params_infer_code,i):
+    # 数字转文字预处理
+    if nums2text_switch:
+        if isinstance(segment, str):
+            segment = num2text(segment)
+        elif isinstance(segment, list):
+            segment = [num2text(s) if isinstance(s, str) else s for s in segment]
+
     if refine_text_flag:
         segment = chat.infer(segment,
                              skip_refine_text=False,

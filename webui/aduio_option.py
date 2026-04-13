@@ -15,7 +15,7 @@ def render():
     global SPEED_SLIDER,ORAL_SLIDER,LAUGH_SLIDER,BREAK_SLIDER,TEMPERATURE_SLIDER,TOP_P_SLIDER,TOP_K_SLIDER
     SPEED_SLIDER = gr.Slider(
         minimum=0, maximum=10, step=1, label=get('Speed'),
-        value=0,
+        value=5,
         info=get('SpeedInfo')
     )
     ORAL_SLIDER = gr.Slider(
