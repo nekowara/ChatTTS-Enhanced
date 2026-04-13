@@ -79,7 +79,7 @@ class Enhancer(nn.Module):
         # Clone is necessary as otherwise it holds a reference to the original model
         cfm_state_dict = {k: v.clone() for k, v in self.lcfm.cfm.state_dict().items()}
         denoiser_state_dict = {k: v.clone() for k, v in self.denoiser.state_dict().items()}
-        state_dict = torch.load(path, map_location="cpu")["module"]
+        state_dict = torch.load(path, map_location="cpu", weights_only=False)["module"]
         self.load_state_dict(state_dict, strict=False)
         self.lcfm.cfm.load_state_dict(cfm_state_dict)  # Reset cfm
         self.denoiser.load_state_dict(denoiser_state_dict)  # Reset denoiser

@@ -38,9 +38,9 @@ def render():
         )
         NUMS2TEXT_CHECKBOX = gr.Checkbox(
             label=get('Nums2Text'),
-            value=False,
+            value=True,
             info=get('Nums2TextInfo'),
-            visible=False
+            visible=True
         )
 
     register_component("refine_text_checkbox", REFINE_TEXT_CHECKBOX)

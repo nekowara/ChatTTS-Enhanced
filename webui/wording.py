@@ -18,7 +18,7 @@ WORDING : Dict[str, Any] =\
     'BatchProcessing': '批量处理',
     'BatchProcessingInfo': '勾选以启用txt文件上传批量处理',
     'SrtProcessing': '导出Srt',
-    'SrtProcessingInfo': '批量处理后会生成对应srt格式的文件',
+    'SrtProcessingInfo': '生成后会生成对应srt格式的字幕文件',
     'TextInputLabel': '输入文字',
     'TextInputPlaceholder': '请把字放这里...',
     'TxtFileInputLabel': '上传TXT、SRT文件',
@@ -45,7 +45,7 @@ WORDING : Dict[str, Any] =\
     'GenerateTextSeed': '随机文本情感🎲',
     'AudioOptionsTitle': '### 音频选项',
     'Speed': 'Speed(语速)',
-    'SpeedInfo': '用于调节生成音频的总体语速。默认值:0',
+    'SpeedInfo': '用于调节生成音频的总体语速。默认值:5',
     'Oral': 'oral(口语化程度)',
     'OralInfo': '用于调节生成音频的自然程度。比如会添加一些连接词:这个、啊、就，等字，让音频更加自然。默认值:2',
     'Laugh': 'laugh(笑声)',
@@ -93,7 +93,7 @@ https://modelscope.cn/studios/ttwwwaa/ChatTTS_Speaker
 ---
 
 ## 💡关于导出SRT
-该功能仅在批量模式下执行，可对每个TXT、SRT生成的音频生成对应的srt文件。
+该功能可在单文本和批量模式下使用，会为生成的音频生成对应的srt字幕文件。
 
 ---
 

@@ -120,6 +120,11 @@ def audio_processor(chat,file_name,segment,refine_text_flag,nums2text_switch,par
         elif isinstance(segment, list):
             segment = [num2text(s) if isinstance(s, str) else s for s in segment]
 
+    # 打印实际送入模型的文本，方便排查吞字问题
+    print(f'\n🔊 正在生成第 {i+1} 段 ({len(segment) if isinstance(segment, str) else "refined"}字):')
+    if isinstance(segment, str):
+        print(f'   "{segment}"')
+
     if refine_text_flag:
         segment = chat.infer(segment,
                              skip_refine_text=False,
@@ -135,6 +140,13 @@ def audio_processor(chat,file_name,segment,refine_text_flag,nums2text_switch,par
                      )
     # 获取音频Data
     audio_data = np.array(wav[0]).flatten()
+
+    # 音量归一化：统一各片段的音量，防止忽大忽小
+    peak = np.max(np.abs(audio_data))
+    if peak > 0:
+        target_peak = 0.9  # 目标峰值（留一点余量防止削波）
+        audio_data = audio_data * (target_peak / peak)
+
     # 音频码率
     sample_rate = 24000
     # enhanced_sample_rate = 0

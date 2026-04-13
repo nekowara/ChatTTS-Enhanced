@@ -18,7 +18,7 @@ def render():
         )
 
         SRT_PROCESSING_CHECKBOX = gr.Checkbox(
-            label=get('SrtProcessing'), value=False, visible=False, info=get('SrtProcessingInfo'),interactive=True
+            label=get('SrtProcessing'), value=False, visible=True, info=get('SrtProcessingInfo'),interactive=True
         )
 
     TEXT_INPUT = gr.Textbox(
@@ -55,5 +55,5 @@ def update_visibility(batch_processing):
         txt_file_input: gr.update(visible=batch_processing),
         split_text_checkbox: gr.update(interactive=not batch_processing, value=False),
         concatenate_audio_checkbox: gr.update(interactive=batch_processing),
-        srt_processing_checkbox: gr.update(visible=batch_processing)
+        srt_processing_checkbox: gr.update(visible=True)
     }

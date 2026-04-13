@@ -175,6 +175,17 @@ def fraction_to_words(match):
 
 
 # 数字转为中英文读法
+def _safe_cn2an(num_str, mode='low'):
+    """安全调用 cn2an，处理异常输入"""
+    import cn2an
+    try:
+        return cn2an.an2cn(num_str, mode)
+    except (ValueError, KeyError):
+        # 兜底：逐位转换
+        digit_map = {'0': '零', '1': '一', '2': '二', '3': '三', '4': '四',
+                     '5': '五', '6': '六', '7': '七', '8': '八', '9': '九', '.': '点'}
+        return ''.join(digit_map.get(c, c) for c in str(num_str))
+
 def num2text(text):
     lang = get_lang(text)
     if lang == 'zh':
@@ -186,12 +197,12 @@ def num2text(text):
             text = re.sub(r'(\d+)\s*\-', r'\1减', text)
             text = re.sub(r'(\d+)\s*[\*x]', r'\1乘', text)
             text = re.sub(r'(\d+)\s*/\s*(\d+)', r'\2分之\1', text)
-            # 处理百分比
-            text = re.sub(r'(\d+(?:\.\d+)?)%', lambda m: '百分之' + cn2an.an2cn(m.group(1), 'low'), text)
+            # 处理百分比（支持 50%、50.5%、50 %、50％）
+            text = re.sub(r'(\d+(?:\.\d+)?)\s*[%％]', lambda m: '百分之' + _safe_cn2an(m.group(1)), text)
             # 处理带小数的数字
-            text = re.sub(r'(\d+\.\d+)', lambda m: cn2an.an2cn(m.group(1), 'low'), text)
+            text = re.sub(r'(\d+\.\d+)', lambda m: _safe_cn2an(m.group(1)), text)
             # 处理整数（使用 'low' 模式：13 -> 十三）
-            text = re.sub(r'(\d+)', lambda m: cn2an.an2cn(m.group(1), 'low'), text)
+            text = re.sub(r'(\d+)', lambda m: _safe_cn2an(m.group(1)), text)
             # 清理残留符号
             text = text.replace('+', '加').replace('÷', '除以').replace('=', '等于')
         except ImportError:
@@ -202,7 +213,7 @@ def num2text(text):
             text = re.sub(r'(\d+)\s*\-', r'\1 减', text)
             text = re.sub(r'(\d+)\s*[\*x]', r'\1 乘', text)
             text = re.sub(r'(\d+)\s*/\s*(\d+)', r'\2分之\1', text)
-            number_list = re.findall(r'((\d+)(?:\.(\d+))?%?)', text)
+            number_list = re.findall(r'((\d+)(?:\.(\d+))?[%％]?)', text)
             if len(number_list) > 0:
                 for m, dc in enumerate(number_list):
                     if len(dc[1]) > 16:
@@ -210,7 +221,7 @@ def num2text(text):
                     int_text = num_to_chinese(dc[1])
                     if len(dc) > 2 and dc[2]:
                         int_text += point + "".join([numtext[int(i)] for i in dc[2]])
-                    if dc[0][-1] == '%':
+                    if dc[0][-1] in '%％':
                         int_text = '百分之' + int_text
                     text = text.replace(dc[0], int_text)
             text = text.replace('1', '一').replace('2', '二').replace('3', '三').replace('4', '四').replace('5', '五').replace(
@@ -284,8 +295,8 @@ def split_text(text, min_length=60):
     :param min_length:
     :return:
     """
-    max_length = min_length * 3  # 安全上限，防止单段过长导致模型截断
-    # 短句分割符号
+    max_length = min(min_length * 2, 150)  # 硬上限 150 字，防止模型截断丢文本
+    # 短句分割符号（包含逗号，因为长句靠逗号连接很常见）
     sentence_delimiters = re.compile(r'([。？！\.]+)')
     # 匹配多个连续的回车符 作为段落点 强制分段
     paragraph_delimiters = re.compile(r'(\s*\n\s*)+')
@@ -315,7 +326,8 @@ def split_text(text, min_length=60):
                 current_sentence += sentence.strip()
 
         if current_sentence:
-            if len(current_sentence) < min_length and len(result) > 0:
+            # 只在合并后不超过 max_length 时才合并到前一段
+            if len(current_sentence) < min_length and len(result) > 0 and len(result[-1]) + len(current_sentence) <= max_length:
                 result[-1] += current_sentence
             else:
                 result.append(current_sentence)
@@ -336,12 +348,17 @@ def split_text(text, min_length=60):
                 else:
                     current += part
             if current.strip():
-                # 如果末尾段太短，合并到前一段
-                if len(current.strip()) < min_length and len(safe_result) > 0:
+                if len(current.strip()) < min_length and len(safe_result) > 0 and len(safe_result[-1]) + len(current.strip()) <= max_length:
                     safe_result[-1] += current.strip()
                 else:
                     safe_result.append(current.strip())
     result = safe_result
+
+    # 打印分段信息，方便调试
+    print(f'\n📝 文本分段结果 (min={min_length}, max={max_length}):')
+    for i, seg in enumerate(result):
+        print(f'  [{i+1}] ({len(seg)}字) {seg[:50]}...' if len(seg) > 50 else f'  [{i+1}] ({len(seg)}字) {seg}')
+    print()
 
     if detect_language(text[:1024]) == "zh":
         result = [normalize_zh(_.strip()) for _ in result if _.strip()]

@@ -8,7 +8,7 @@ import torch
 def save_config(name,con_params: ConfigParams):
     con_params.tensor=get_seed_tensor(con_params.audio_seed)
     if con_params.custom_emb and con_params.emb_path is not None:
-        con_params.tensor=torch.load(con_params.emb_path)
+        con_params.tensor=torch.load(con_params.emb_path, weights_only=False)
     save_path=os.path.join(get_path('CONFIG_DIR'), f"{name}.pt")
     torch.save(con_params, save_path)
     return f"配置保存至 {save_path}"
@@ -25,7 +25,7 @@ def load_config():
 
 def apply_config(name):
     filename = os.path.join(get_path('CONFIG_DIR'), f"{name}.pt")
-    loaded_conf_params = torch.load(filename)
+    loaded_conf_params = torch.load(filename, weights_only=False)
     return (
         f"{name}.pt",
         loaded_conf_params.text_seed,
