@@ -295,13 +295,11 @@ def split_text(text, min_length=60):
     :param min_length:
     :return:
     """
-    # 保护数字中的小数点和逗号，防止被当成标点切断（例如 7.0% 或 3,000）
-    text = re.sub(r'(?<=\d)\.(?=\d)', '__DOT__', text)
-    text = re.sub(r'(?<=\d),(?=\d)', '__COMMA__', text)
+
 
     max_length = min(min_length * 2, 150)  # 硬上限 150 字，防止模型截断丢文本
-    # 短句分割符号（包含逗号，因为长句靠逗号连接很常见）
-    sentence_delimiters = re.compile(r'([。？！\.]+)')
+    # 短句分割符号（忽略夹在数字中的小数点，如 7.0）
+    sentence_delimiters = re.compile(r'([。？！]+|(?<!\d)\.+|\.+(?!\d))')
     # 匹配多个连续的回车符 作为段落点 强制分段
     paragraph_delimiters = re.compile(r'(\s*\n\s*)+')
 
@@ -342,8 +340,8 @@ def split_text(text, min_length=60):
         if len(seg) <= max_length:
             safe_result.append(seg)
         else:
-            # 在逗号处拆分过长的段落
-            comma_parts = re.split(r'([，,]+)', seg)
+            # 在逗号处拆分过长的段落（忽略数字中的千分位，如 3,000）
+            comma_parts = re.split(r'([，]+|(?<!\d),+|,+(?!\d))', seg)
             current = ''
             for part in comma_parts:
                 if len(current) + len(part) > max_length and current:
@@ -368,9 +366,6 @@ def split_text(text, min_length=60):
         result = [normalize_zh(_.strip()) for _ in result if _.strip()]
     else:
         result = [normalize_en(_.strip()) for _ in result if _.strip()]
-
-    # 还原小数点和逗号
-    result = [seg.replace('__DOT__', '.').replace('__COMMA__', ',') for seg in result]
 
     return result
 
