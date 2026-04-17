@@ -120,6 +120,14 @@ def audio_processor(chat,file_name,segment,refine_text_flag,nums2text_switch,par
         elif isinstance(segment, list):
             segment = [num2text(s) if isinstance(s, str) else s for s in segment]
 
+    # 防吃末字：确保文本以句末标点结尾，给模型一个"缓冲区"
+    # 没有尾部标点时，模型会在最后一个字提前输出 EOS，导致末字被截断
+    if isinstance(segment, str):
+        if segment and segment[-1] not in '。？！.!?':
+            segment += '。'
+    elif isinstance(segment, list):
+        segment = [s + '。' if isinstance(s, str) and s and s[-1] not in '。？！.!?' else s for s in segment]
+
     # 打印实际送入模型的文本，方便排查吞字问题
     print(f'\n🔊 正在生成第 {i+1} 段 ({len(segment) if isinstance(segment, str) else "refined"}字):')
     if isinstance(segment, str):
@@ -147,11 +155,12 @@ def audio_processor(chat,file_name,segment,refine_text_flag,nums2text_switch,par
         target_peak = 0.9  # 目标峰值（留一点余量防止削波）
         audio_data = audio_data * (target_peak / peak)
 
-    # 音频码率
+    # 防吃末字（音频层）：末尾补 0.3 秒静音，防止 Vocos 解码器帧对齐截断
     sample_rate = 24000
-    # enhanced_sample_rate = 0
-    # 保存tts切片输出
+    silence_pad = np.zeros(int(sample_rate * 0.3), dtype=audio_data.dtype)
+    audio_data = np.concatenate([audio_data, silence_pad])
 
+    # 保存tts切片输出
     output_path=os.path.join(get_path('OUTPUT_DIR'), file_name, '切片')
     segment_audio_path = os.path.join(output_path, f"{file_name}_{i}.wav")
     if not os.path.exists(output_path):
