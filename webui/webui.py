@@ -1,3 +1,5 @@
+import os
+import sys
 import gradio as gr
 from wording import get
 import batch_option
@@ -9,8 +11,22 @@ import output_option
 import config_option
 from webuiutils import read_config, get_server_config
 
+# 将项目根目录加入 sys.path（Colab 环境需要）
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
 
 def main():
+    # 预加载 ChatTTS 模型，避免首次生成时因加载超时导致 504
+    print("⏳ 正在预加载 ChatTTS 模型（首次启动需要 1-3 分钟）...")
+    try:
+        from processors.model_processor import load_chat_tts
+        load_chat_tts()
+        print("✅ ChatTTS 模型预加载完成")
+    except Exception as e:
+        print(f"⚠️  模型预加载失败: {e}（将在首次生成时重试）")
+
     with gr.Blocks(theme=gr.themes.Soft()) as demo:
         gr.Markdown(get('Title'))
         gr.Markdown(get('VersionDescription'))
