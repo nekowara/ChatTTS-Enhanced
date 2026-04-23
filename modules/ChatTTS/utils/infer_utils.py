@@ -95,6 +95,11 @@ character_map = {
     '>': ',',
     '<': ',',
     '-': ',',
+    '？': '。',
+    '?': '.',
+    '~': '。',
+    '—': '，',
+    '…': '。',
 }
 
 halfwidth_2_fullwidth_map = {
@@ -137,5 +142,16 @@ def apply_half2full_map(text):
     return text.translate(translation_table)
 
 def apply_character_map(text):
+    # 保护 ChatTTS 的有效控制 token 免受括号替换的影响
+    tokens_to_protect = ['[uv_break]', '[laugh]', '[lbreak]']
+    for i, token in enumerate(tokens_to_protect):
+        text = text.replace(token, f"__PROTECTED_TOKEN_{i}__")
+        
     translation_table = str.maketrans(character_map)
-    return text.translate(translation_table)
+    text = text.translate(translation_table)
+    
+    # 恢复控制 token
+    for i, token in enumerate(tokens_to_protect):
+        text = text.replace(f"__PROTECTED_TOKEN_{i}__", token)
+        
+    return text
