@@ -68,10 +68,21 @@ def main():
 
         config = read_config('config.ini')
         custom_server, ip_address, port = get_server_config(config)
+
+        # 检测是否在 Colab 环境
+        import os
+        is_colab = 'COLAB_RELEASE_TAG' in os.environ
+
         if custom_server:
-            demo.launch(inbrowser=True, server_name=ip_address, server_port=port, share=True)
+            demo.launch(inbrowser=not is_colab, server_name=ip_address, server_port=port, share=True)
         else:
-            demo.launch(inbrowser=True, share=True)
+            # Colab 环境下绑定 0.0.0.0 以确保 frpc 隧道可靠连接
+            demo.launch(
+                inbrowser=not is_colab,
+                server_name="0.0.0.0" if is_colab else "127.0.0.1",
+                server_port=7860,
+                share=True
+            )
 
 
 
