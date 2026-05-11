@@ -9,7 +9,7 @@ def concatenate_audio(audio_files, output_path):
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             for audio_file in audio_files:
                 f.write(f"file '{audio_file}'\n")
-        os.system(f"ffmpeg -y -loglevel error -f concat -safe 0 -i {filelist_path} -c copy {output_path}")
+        os.system(f'ffmpeg -y -loglevel error -f concat -safe 0 -i "{filelist_path}" -c copy "{output_path}"')
     finally:
         if os.path.exists(filelist_path):
             os.remove(filelist_path)
