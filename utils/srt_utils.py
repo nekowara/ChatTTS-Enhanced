@@ -4,6 +4,32 @@ from datetime import timedelta
 import librosa
 import os
 
+# ---- stable-ts 对齐模型（懒加载单例） ----
+_align_model = None
+
+
+def _load_alignment_model():
+    """
+    懒加载 stable-ts Whisper base 模型（全局单例）。
+    仅在首次调用 generate_srt_aligned() 时加载，避免不需要 SRT 时浪费 VRAM。
+    """
+    global _align_model
+    if _align_model is not None:
+        return _align_model
+
+    try:
+        import stable_whisper
+        print("⏳ 正在加载 Whisper base 对齐模型（仅首次需要）...")
+        _align_model = stable_whisper.load_model('base')
+        print("✅ Whisper 对齐模型加载完成")
+        return _align_model
+    except ImportError:
+        print("⚠️  stable-ts 未安装，将退回字数比例估算方式生成 SRT")
+        return None
+    except Exception as e:
+        print(f"⚠️  Whisper 对齐模型加载失败: {e}，将退回字数比例估算方式生成 SRT")
+        return None
+
 
 def _split_text_for_subtitle(text, max_chars=25):
     """
@@ -76,9 +102,128 @@ def _split_text_for_subtitle(text, max_chars=25):
     return [s for s in result if s.strip()]
 
 
+def generate_srt_aligned(audio_path, full_text, output_srt_file):
+    """
+    使用 stable-ts forced alignment 生成精确时间戳的 SRT 字幕。
+    如果 stable-ts 不可用，自动退回按字数比例估算。
+
+    参数:
+    - audio_path: 音频文件路径（合并后的完整音频或单个切片）
+    - full_text: 完整的原始文本（所有段拼接，用换行符分隔）
+    - output_srt_file: 输出的 SRT 文件路径
+    """
+    model = _load_alignment_model()
+
+    if model is None:
+        # fallback: stable-ts 不可用时退回旧方案（按字数比例估算）
+        print("⚠️  退回字数比例估算方式生成 SRT")
+        _generate_srt_by_ratio(audio_path, full_text, output_srt_file)
+        return
+
+    print(f"🔍 正在对音频进行强制对齐: {audio_path}")
+
+    try:
+        # 使用 stable-ts 对已知文本做 forced alignment
+        result = model.align(
+            audio=audio_path,
+            text=full_text,
+            language='zh'
+        )
+
+        # 从 alignment 结果提取 segments，生成 SRT 条目
+        subtitles = []
+        for segment in result.segments:
+            seg_text = segment.text.strip()
+            if not seg_text:
+                continue
+
+            seg_start = segment.start
+            seg_end = segment.end
+
+            # 对过长的 segment 做字幕分行
+            sub_texts = _split_text_for_subtitle(seg_text)
+
+            if len(sub_texts) == 1:
+                # 短句直接作为一条字幕
+                subtitles.append(srt.Subtitle(
+                    index=len(subtitles) + 1,
+                    start=timedelta(seconds=seg_start),
+                    end=timedelta(seconds=seg_end),
+                    content=sub_texts[0]
+                ))
+            else:
+                # 长句拆分后，在该 segment 的精确时间范围内按字数比例细分
+                total_chars = sum(len(s) for s in sub_texts)
+                seg_duration = seg_end - seg_start
+                sub_start = seg_start
+
+                for sub_text in sub_texts:
+                    char_ratio = len(sub_text) / total_chars if total_chars > 0 else 1.0 / len(sub_texts)
+                    sub_duration = seg_duration * char_ratio
+                    sub_end = sub_start + sub_duration
+
+                    subtitles.append(srt.Subtitle(
+                        index=len(subtitles) + 1,
+                        start=timedelta(seconds=sub_start),
+                        end=timedelta(seconds=sub_end),
+                        content=sub_text
+                    ))
+                    sub_start = sub_end
+
+        # 写入 SRT 文件
+        os.makedirs(os.path.dirname(output_srt_file), exist_ok=True)
+        srt_content = srt.compose(subtitles)
+        with open(output_srt_file, 'w', encoding='utf-8') as f:
+            f.write(srt_content)
+
+        print(f"📝 SRT 字幕已保存（精确对齐）: {output_srt_file} ({len(subtitles)} 条字幕)")
+
+    except Exception as e:
+        print(f"⚠️  强制对齐失败: {e}，退回字数比例估算方式")
+        _generate_srt_by_ratio(audio_path, full_text, output_srt_file)
+
+
+def _generate_srt_by_ratio(audio_path, full_text, output_srt_file):
+    """
+    Fallback：当 stable-ts 不可用时，按字数比例估算时间戳生成 SRT。
+    使用整段音频时长 + 整段文本做比例分配。
+    """
+    y, sr = librosa.load(audio_path, sr=None)
+    duration = librosa.get_duration(y=y, sr=sr)
+
+    sub_texts = _split_text_for_subtitle(full_text)
+    total_chars = sum(len(s) for s in sub_texts)
+
+    if total_chars == 0:
+        print("⚠️  文本为空，跳过 SRT 生成")
+        return
+
+    subtitles = []
+    sub_start = 0.0
+    for sub_text in sub_texts:
+        char_ratio = len(sub_text) / total_chars
+        sub_duration = duration * char_ratio
+        sub_end = sub_start + sub_duration
+
+        subtitles.append(srt.Subtitle(
+            index=len(subtitles) + 1,
+            start=timedelta(seconds=sub_start),
+            end=timedelta(seconds=sub_end),
+            content=sub_text
+        ))
+        sub_start = sub_end
+
+    os.makedirs(os.path.dirname(output_srt_file), exist_ok=True)
+    srt_content = srt.compose(subtitles)
+    with open(output_srt_file, 'w', encoding='utf-8') as f:
+        f.write(srt_content)
+
+    print(f"📝 SRT 字幕已保存（比例估算）: {output_srt_file} ({len(subtitles)} 条字幕)")
+
+
 def generate_srt_from_audio_segments(audio_segments, text_segments, output_srt_file):
     """
-    生成细粒度 SRT 字幕文件。
+    [旧方案 - 保留用于兼容] 基于多个音频切片 + 字数比例生成 SRT。
 
     流程：
     1. 用 librosa 获取每个音频切片的真实时长

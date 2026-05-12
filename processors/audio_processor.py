@@ -6,7 +6,7 @@ import torch
 import torchaudio
 import numpy as np
 from utils.path_utils import get_path
-from utils.srt_utils import generate_srt_from_audio_segments
+from utils.srt_utils import generate_srt_aligned, generate_srt_from_audio_segments
 from utils.text_utils import num2text
 #音频列表
 audio_files = []
@@ -80,13 +80,23 @@ def audio_pre_processor(params: AudioPreProcessParams,enparams: EnhanceProcessPa
                 enhanced_sample_rate, enhanced_audio_data = enhance_processor(enparams)
                 enhanced_audio_files.append(segment_audio_path)
 
-        if srt_flag:
-            srt_path = os.path.join(get_path('OUTPUT_DIR'), file_name, f'{file_name}.srt')
-            generate_srt_from_audio_segments(audio_files, content, srt_path)
-
-
         if len(audio_files) > 1:
             concatenated_or, concatenated_en =concatenate_audiofile(file_name,audio_files,enhanced_audio_files)
+
+        # SRT 生成（移到合并之后，以便使用合并音频做精确对齐）
+        if srt_flag:
+            srt_path = os.path.join(get_path('OUTPUT_DIR'), file_name, f'{file_name}.srt')
+            full_text = '\n'.join(content)
+            merged_audio = os.path.join(get_path('OUTPUT_DIR'), file_name, '合并', f'{file_name}_合并.wav')
+            if len(audio_files) > 1 and os.path.exists(merged_audio):
+                # 多段时，使用合并音频做精确对齐
+                generate_srt_aligned(merged_audio, full_text, srt_path)
+            elif len(audio_files) == 1:
+                # 单段时，直接对单个切片做对齐
+                generate_srt_aligned(audio_files[0], full_text, srt_path)
+            else:
+                # fallback：合并音频不存在时退回旧方案
+                generate_srt_from_audio_segments(audio_files, content, srt_path)
 
     original_audio_output = None
     enhanced_audio_output = None

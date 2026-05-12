@@ -5,7 +5,7 @@
 # 安装依赖
 !pip install torch==2.5.1 torchaudio==2.5.1 torchvision --index-url https://download.pytorch.org/whl/cu118
 !pip install transformers==4.44.2
-!pip install -q omegaconf vocos vector_quantize_pytorch gradio==5.49.1 cn2an pypinyin openai jieba WeTextProcessing python-dotenv deepspeed srt
+!pip install -q omegaconf vocos vector_quantize_pytorch gradio==5.49.1 cn2an pypinyin openai jieba WeTextProcessing python-dotenv deepspeed srt stable-ts openai-whisper
 
 # ================= 2. 建立隧道并启动 =================
 import subprocess
